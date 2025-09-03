@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Instagram Stats</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      background: #fafafa;
+      margin: 20px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.8em;
+      font-weight: bold;
+      background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af, #515bd4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 20px;
+    }
+    button {
+      margin: 5px;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 20px;
+      font-size: 14px;
+      color: white;
+      background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af, #515bd4);
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.85; }
+    input[type="date"], #dateBtn {
+      margin: 5px;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    #chart-container {
+      width: 100%;
+      max-width: 800px;
+      margin: 20px auto;
+      background: white;
+      padding: 15px;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    #data-table {
+      width: 100%;
+      max-width: 800px;
+      margin: 20px auto;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    #data-table th, #data-table td {
+      border: 1px solid #eee;
+      padding: 8px;
+      text-align: center;
+    }
+    #data-table th {
+      background: #fafafa;
+      font-weight: bold;
+    }
+    .positive { color: #e1306c; font-weight: bold; } /* Instagramピンク */
+    .negative { color: #515bd4; font-weight: bold; } /* Instagramブルー */
+  </style>
+</head>
+<body>
+  <h1>Instagram フォロワー / フォロー推移</h1>
+
+  <!-- 集計期間ボタン -->
+  <div>
+    <button onclick="setRange(7)">直近7日</button>
+    <button onclick="setRange(30)">直近30日</button>
+    <button onclick="setRange(90)">直近90日</button>
+  </div>
+
+  <!-- カレンダー指定 -->
+  <div>
+    開始日: <input type="date" id="startDate">
+    終了日: <input type="date" id="endDate">
+    <button id="dateBtn" onclick="applyCustomRange()">期間を適用</button>
+  </div>
+
+  <!-- グラフ -->
+  <div id="chart-container">
+    <canvas id="myChart"></canvas>
+  </div>
+
+  <!-- 表 -->
+  <table id="data-table"></table>
+
+  <script>
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTvabzaDpfs0f1sm9hfufcmqqw3_M_hd6Gz5VHgUAyRR3q4fkzRVmeqW-FWJlJu4dTSCKcwkdZkTGDl/pub?output=csv";
+
+    let allData = [];
+    let chart;
+
+    // CSVを読み込む
+    fetch(csvUrl)
+      .then(res => res.text())
+      .then(csv => {
+        const rows = csv.trim().split("\n").map(r => r.split(","));
+        rows.shift(); // ヘッダー削除
+        allData = rows.map(r => ({
+          date: new Date(r[0]),
+          followers: Number(r[1]),
+          following: Number(r[2])
+        }));
+        setRange(30); // 初期表示: 直近30日
+      });
+
+    // 直近N日表示
+    function setRange(days) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      const data = allData.filter(d => d.date >= cutoff);
+      drawChart(data);
+      drawTable(data);
+    }
+
+    // 任意期間指定
+    function applyCustomRange() {
+      const start = new Date(document.getElementById("startDate").value);
+      const end = new Date(document.getElementById("endDate").value);
+      if (!start || !end) return;
+      const data = allData.filter(d => d.date >= start && d.date <= end);
+      drawChart(data);
+      drawTable(data);
+    }
+
+    // グラフ描画
+    function drawChart(data) {
+      const labels = data.map(d => d.date.toISOString().split("T")[0]);
+      const followers = data.map(d => d.followers);
+      const following = data.map(d => d.following);
+
+      const ctx = document.getElementById("myChart").getContext("2d");
+
+      if (chart) chart.destroy();
+
+      chart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "フォロワー数",
+              data: followers,
+              borderColor: "#dd2a7b",
+              backgroundColor: "rgba(221,42,123,0.15)",
+              fill: true,
+              tension: 0.3,
+              pointRadius: 3
+            },
+            {
+              label: "フォロー数",
+              data: following,
+              borderColor: "#8134af",
+              backgroundColor: "rgba(129,52,175,0.15)",
+              fill: true,
+              tension: 0.3,
+              pointRadius: 3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: "top" },
+            title: { display: true, text: "Instagram 推移グラフ" }
+          },
+          scales: {
+            x: { ticks: { maxRotation: 90, minRotation: 45 } },
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    // 表描画（増減付き）
+    function drawTable(data) {
+      const table = document.getElementById("data-table");
+      let html = "<tr><th>日付</th><th>フォロワー数</th><th>増減</th><th>フォロー数</th><th>増減</th></tr>";
+
+      data.forEach((d, i) => {
+        const dateStr = d.date.toISOString().split("T")[0];
+        let followerDiff = "";
+        let followingDiff = "";
+
+        if (i > 0) {
+          const prev = data[i - 1];
+          const diffF = d.followers - prev.followers;
+          const diffFo = d.following - prev.following;
+          followerDiff = diffF > 0 ? `<span class='positive'>+${diffF}</span>` :
+                          diffF < 0 ? `<span class='negative'>${diffF}</span>` : "0";
+          followingDiff = diffFo > 0 ? `<span class='positive'>+${diffFo}</span>` :
+                           diffFo < 0 ? `<span class='negative'>${diffFo}</span>` : "0";
+        }
+
+        html += `<tr>
+          <td>${dateStr}</td>
+          <td>${d.followers}</td>
+          <td>${followerDiff}</td>
+          <td>${d.following}</td>
+          <td>${followingDiff}</td>
+        </tr>`;
+      });
+      table.innerHTML = html;
+    }
+  </script>
+</body>
+</html>
