@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Instagram 日次フォロワー/フォロー増減</title>
+<!-- スタイル部分は省略せず前回と同じです -->
+<style>
+  :root { --bg:#0b0c10; --card:#14161a; --ink:#e9eef2; --muted:#9aa4af; --pos:#3ddc97; --neg:#ff7676; --accent:#7aa0ff; }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:-apple-system,blinkmacsystemfont,"Segoe UI",roboto,helvetica,arial,"Apple Color Emoji","Segoe UI Emoji";line-height:1.6}
+  header{padding:18px 16px 8px} h1{margin:0 0 6px;font-size:18px}
+  .wrap{padding:12px}
+  .card{background:var(--card);border-radius:16px;padding:14px;box-shadow:0 6px 20px rgba(0,0,0,.25);margin-bottom:12px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .stat{flex:1 1 140px;background:#0f1115;border-radius:12px;padding:12px}
+  .stat .v{font-size:22px;font-weight:700}
+  .stat .k{font-size:12px;color:var(--muted)}
+  .muted{color:var(--muted)}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  button,select{background:#0f1115;border:1px solid #20242b;color:var(--ink);padding:10px 12px;border-radius:12px;font-size:14px}
+  button:active{transform:translateY(1px)}
+  .chart{width:100%;overflow-x:auto;padding-bottom:8px}
+  svg{width:1200px;max-width:100%;height:280px;display:block}
+  .legend{display:flex;gap:12px;font-size:12px;color:var(--muted);padding:4px 2px 0}
+  table{width:100%;border-collapse:separate;border-spacing:0 8px;font-size:14px}
+  th,td{text-align:left;padding:10px 12px;background:#0f1115}
+  th{color:#b9c3cf;background:#10131a;position:sticky;top:0}
+  tr{border-radius:12px}
+  td:first-child,th:first-child{border-top-left-radius:10px;border-bottom-left-radius:10px}
+  td:last-child,th:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
+  .pos{color:var(--pos)} .neg{color:var(--neg)}
+  .hint{font-size:12px;color:var(--muted);padding:6px 0}
+  a{color:var(--accent);text-decoration:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Instagram 日次フォロワー/フォロー増減</h1>
+  <div class="muted" style="font-size:13px">スプレッドシートCSVを読み込み中…</div>
+</header>
+
+<div class="wrap">
+  <div class="row">
+    <div class="stat">
+      <div class="k">期間合計 増減（フォロワー）</div>
+      <div class="v" id="sumFollowers">—</div>
+    </div>
+    <div class="stat">
+      <div class="k">期間合計 増減（フォロー）</div>
+      <div class="v" id="sumFollowing">—</div>
+    </div>
+    <div class="stat">
+      <div class="k">最新時点 フォロワー/フォロー</div>
+      <div class="v" id="latest">—</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="legend">凡例：<span class="pos">緑＝増</span>／<span class="neg">赤＝減</span>（上段：フォロワー、下段：フォロー）</div>
+    <div class="chart"><svg id="chart"></svg></div>
+    <div class="hint">横スクロールやピンチで確認できます。</div>
+  </div>
+
+  <div class="card">
+    <table id="table">
+      <thead>
+        <tr>
+          <th>日付</th>
+          <th>フォロワー</th>
+          <th>前日差</th>
+          <th>フォロー</th>
+          <th>前日差</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const DATA_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTvabzaDpfs0f1sm9hfufcmqqw3_M_hd6Gz5VHgUAyRR3q4fkzRVmeqW-FWJlJu4dTSCKcwkdZkTGDl/pub?output=csv";
+
+const el = {
+  chart: document.getElementById('chart'),
+  tableBody: document.querySelector('#table tbody'),
+  sumFollowers: document.getElementById('sumFollowers'),
+  sumFollowing: document.getElementById('sumFollowing'),
+  latest: document.getElementById('latest'),
+};
+
+function parseCSV(text){
+  const lines = text.trim().split(/\r?\n/);
+  const head = lines.shift().split(',').map(s=>s.trim().toLowerCase());
+  const idx = {
+    date: head.indexOf('date'),
+    followers: head.indexOf('followers'),
+    following: head.indexOf('following'),
+  };
+  const rows = lines.map(l=>{
+    const c = l.split(',').map(s=>s.trim());
+    return {
+      date: c[idx.date],
+      followers: Number(c[idx.followers]),
+      following: Number(c[idx.following]),
+    };
+  }).filter(r => r.date && Number.isFinite(r.followers) && Number.isFinite(r.following));
+  rows.sort((a,b)=> a.date<b.date ? -1 : 1);
+  let prev=null;
+  for(const r of rows){
+    if(prev){
+      r.diffFollowers = r.followers - prev.followers;
+      r.diffFollowing = r.following - prev.following;
+    } else {
+      r.diffFollowers = 0;
+      r.diffFollowing = 0;
+    }
+    prev = r;
+  }
+  return rows;
+}
+
+function fmt(n){ return n.toLocaleString('ja-JP'); }
+function signClass(n){ return n>=0 ? 'pos' : 'neg'; }
+function sum(arr, key){ return arr.reduce((a,b)=>a+(b[key]||0),0); }
+
+function renderTable(rows){
+  el.tableBody.innerHTML = rows.map(r=>`
+    <tr>
+      <td>${r.date}</td>
+      <td>${fmt(r.followers)}</td>
+      <td class="${signClass(r.diffFollowers)}">${r.diffFollowers>=0?'+':''}${fmt(r.diffFollowers)}</td>
+      <td>${fmt(r.following)}</td>
+      <td class="${signClass(r.diffFollowing)}">${r.diffFollowing>=0?'+':''}${fmt(r.diffFollowing)}</td>
+    </tr>
+  `).join('');
+}
+
+function renderStats(rows){
+  if(rows.length===0){ return; }
+  el.sumFollowers.innerHTML = `<span class="${signClass(sum(rows,'diffFollowers'))}">${sum(rows,'diffFollowers')>=0?'+':''}${fmt(sum(rows,'diffFollowers'))}</span>`;
+  el.sumFollowing.innerHTML = `<span class="${signClass(sum(rows,'diffFollowing'))}">${sum(rows,'diffFollowing')>=0?'+':''}${fmt(sum(rows,'diffFollowing'))}</span>`;
+  const last = rows[rows.length-1];
+  el.latest.textContent = `${fmt(last.followers)} / ${fmt(last.following)}（${last.date}）`;
+}
+
+function renderChart(rows){
+  const w = Math.max(60*rows.length, 600);
+  const h = 260, pad=32, mid=h/2;
+  const maxAbs = Math.max(1, ...rows.flatMap(r=>[Math.abs(r.diffFollowers), Math.abs(r.diffFollowing)]));
+  const barW = Math.max(6, Math.min(12, (w- pad*2)/rows.length * 0.8));
+  const gap = ((w- pad*2)/rows.length) - barW;
+  const yScale = v => mid - (v/maxAbs)*(h/2 - pad);
+  const xAt = i => pad + i*(barW+gap);
+  let svg = `<svg viewBox="0 0 ${w} ${h}">`;
+  svg += `<line x1="0" y1="${mid}" x2="${w}" y2="${mid}" stroke="#2a2f39" stroke-width="1"/>`;
+  rows.forEach((r,i)=>{
+    const x = xAt(i);
+    const y0 = yScale(0), y1 = yScale(r.diffFollowers);
+    const fh = Math.abs(y1 - y0);
+    svg += `<rect x="${x}" y="${Math.min(y0,y1)-fh}" width="${barW}" height="${fh}" fill="${r.diffFollowers>=0?'var(--pos)':'var(--neg)'}" rx="3"/>`;
+    const y0b = yScale(0)+2;
+    const y1b = yScale(-r.diffFollowing);
+    const fhb = Math.abs(y1b - y0b);
+    svg += `<rect x="${x}" y="${Math.min(y0b,y1b)}" width="${barW}" height="${fhb}" fill="${r.diffFollowing>=0?'var(--pos)':'var(--neg)'}" opacity="0.7" rx="3"/>`;
+    if(i%Math.ceil(rows.length/12)===0){
+      svg += `<text x="${x+barW/2}" y="${h-6}" font-size="10" fill="#9aa4af" text-anchor="middle">${r.date.slice(5)}</text>`;
+    }
+  });
+  svg += `</svg>`;
+  el.chart.innerHTML = svg;
+}
+
+async function boot(){
+  try{
+    const resp = await fetch(DATA_URL,{cache:'no-store'});
+    const text = await resp.text();
+    const rows = parseCSV(text);
+    renderTable(rows);
+    renderStats(rows);
+    renderChart(rows);
+  }catch(e){
+    alert("CSV読み込み失敗: " + e.message);
+  }
+}
+boot();
+</script>
+</body>
+</html>
