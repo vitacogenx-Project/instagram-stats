@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Instagram Stats</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      background: #fafafa;
+      margin: 20px;
+      text-align: center;
+      color: #333;
+    }
+    h1 {
+      font-size: 1.8em;
+      font-weight: bold;
+      background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af, #515bd4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 20px;
+    }
+    button {
+      margin: 5px;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 20px;
+      font-size: 14px;
+      color: white;
+      background: #dd2a7b;
+      cursor: pointer;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    button:hover {
+      transform: scale(1.05);
+      opacity: 0.9;
+    }
+    input[type="date"], #dateBtn {
+      margin: 5px;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .card {
+      width: 100%;
+      max-width: 900px;
+      margin: 20px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+    }
+    #data-table {
+      width: 100%;
+      min-width: 750px;
+      border-collapse: collapse;
+      margin-top: 15px;
+      border-radius: 12px;
+      overflow: hidden;
+      font-size: 14px;
+    }
+    #data-table th {
+      background: #444;
+      color: white;
+      padding: 12px 8px;
+      white-space: nowrap;
+      text-align: center;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    #data-table td {
+      border-bottom: 1px solid #eee;
+      padding: 10px 8px;
+      white-space: nowrap;
+      text-align: center;
+    }
+    #data-table tr:nth-child(even) {
+      background: #f9f9f9;
+    }
+    .positive { color: #d62839; font-weight: bold; }
+    .negative { color: #3867d6; font-weight: bold; }
+    .rate-green { color: #20bf6b; font-weight: bold; }
+    .rate-black { color: #000; font-weight: bold; }
+    .rate-red { color: #e74c3c; font-weight: bold; }
+    .note {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Instagram フォロワー / フォロー推移</h1>
+
+  <!-- 集計期間ボタン -->
+  <div>
+    <button onclick="setRange(7)">直近7日</button>
+    <button onclick="setRange(30)">直近30日</button>
+    <button onclick="setRange(90)">直近90日</button>
+  </div>
+
+  <!-- カレンダー指定 -->
+  <div>
+    開始日: <input type="date" id="startDate">
+    終了日: <input type="date" id="endDate">
+    <button id="dateBtn" onclick="applyCustomRange()">期間を適用</button>
+  </div>
+
+  <!-- グラフカード -->
+  <div class="card">
+    <canvas id="myChart"></canvas>
+  </div>
+
+  <!-- 表カード -->
+  <div class="card table-wrapper">
+    <table id="data-table"></table>
+    <div class="note">※フォローバック率 ＝ フォロワー ÷ フォロー × 100</div>
+  </div>
+
+  <script>
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTvabzaDpfs0f1sm9hfufcmqqw3_M_hd6Gz5VHgUAyRR3q4fkzRVmeqW-FWJlJu4dTSCKcwkdZkTGDl/pub?output=csv";
+
+    let allData = [];
+    let chart;
+
+    fetch(csvUrl)
+      .then(res => res.text())
+      .then(csv => {
+        const rows = csv.trim().split("\n").map(r => r.split(","));
+        rows.shift();
+        allData = rows.map(r => ({
+          date: new Date(r[0]),
+          followers: Number(r[1]),
+          following: Number(r[2])
+        }));
+        setRange(30);
+      });
+
+    function setRange(days) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      const data = allData.filter(d => d.date >= cutoff);
+      drawChart(data);
+      drawTable(data);
+    }
+
+    function applyCustomRange() {
+      const start = new Date(document.getElementById("startDate").value);
+      const end = new Date(document.getElementById("endDate").value);
+      if (!start || !end) return;
+      const data = allData.filter(d => d.date >= start && d.date <= end);
+      drawChart(data);
+      drawTable(data);
+    }
+
+    function drawChart(data) {
+      const labels = data.map(d => d.date.toISOString().split("T")[0]);
+      const followers = data.map(d => d.followers);
+      const following = data.map(d => d.following);
+
+      const ctx = document.getElementById("myChart").getContext("2d");
+
+      if (chart) chart.destroy();
+
+      chart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "フォロワー数",
+              data: followers,
+              borderColor: "#e1306c",
+              backgroundColor: "rgba(225,48,108,0.15)",
+              fill: true,
+              tension: 0.3,
+              pointRadius: 3
+            },
+            {
+              label: "フォロー数",
+              data: following,
+              borderColor: "#3867d6",
+              backgroundColor: "rgba(56,103,214,0.15)",
+              fill: true,
+              tension: 0.3,
+              pointRadius: 3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: "top" }
+          },
+          scales: {
+            x: { ticks: { maxRotation: 90, minRotation: 45 } },
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function drawTable(data) {
+      const table = document.getElementById("data-table");
+      let html = "<tr><th>日付</th><th>フォロワー数</th><th>増減</th><th>フォロー数</th><th>増減</th><th>フォローバック率</th></tr>";
+
+      data.forEach((d, i) => {
+        const dateStr = d.date.toISOString().split("T")[0];
+        let followerDiff = "";
+        let followingDiff = "";
+
+        if (i > 0) {
+          const prev = data[i - 1];
+          const diffF = d.followers - prev.followers;
+          const diffFo = d.following - prev.following;
+          followerDiff = diffF > 0 ? `<span class='positive'>↑${diffF}</span>` :
+                          diffF < 0 ? `<span class='negative'>↓${Math.abs(diffF)}</span>` : "0";
+          followingDiff = diffFo > 0 ? `<span class='positive'>↑${diffFo}</span>` :
+                           diffFo < 0 ? `<span class='negative'>↓${Math.abs(diffFo)}</span>` : "0";
+        }
+
+        let fbRate = "-";
+        if (d.following > 0) {
+          const rate = (d.followers / d.following) * 100;
+          let cssClass = "rate-black";
+          if (rate >= 56) cssClass = "rate-green";
+          else if (rate <= 45) cssClass = "rate-red";
+          fbRate = `<span class="${cssClass}">${rate.toFixed(1)}%</span>`;
+        }
+
+        html += `<tr>
+          <td>${dateStr}</td>
+          <td>${d.followers}</td>
+          <td>${followerDiff}</td>
+          <td>${d.following}</td>
+          <td>${followingDiff}</td>
+          <td>${fbRate}</td>
+        </tr>`;
+      });
+      table.innerHTML = html;
+    }
+  </script>
+</body>
+</html>
