@@ -118,8 +118,10 @@
 
     function setRange(days) {
       const end = new Date();
+      end.setHours(23,59,59,999); // 今日のデータも含める
       const start = new Date();
       start.setDate(end.getDate() - days + 1);
+      start.setHours(0,0,0,0);
       const filtered = rawData.filter(d => d.date >= start && d.date <= end);
       drawChart(filtered);
       drawTable(filtered);
@@ -128,6 +130,8 @@
     function applyCustomRange() {
       const start = new Date(document.getElementById("startDate").value);
       const end = new Date(document.getElementById("endDate").value);
+      start.setHours(0,0,0,0);
+      end.setHours(23,59,59,999);
       const filtered = rawData.filter(d => d.date >= start && d.date <= end);
       drawChart(filtered);
       drawTable(filtered);
