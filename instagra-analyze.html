@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Instagram Stats</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
   <style>
     body {
       font-family: "Helvetica Neue", Arial, sans-serif;
@@ -100,6 +101,7 @@
   <!-- 集計期間ボタン -->
   <div>
     <button onclick="setRange(7)">直近7日</button>
+    <button onclick="setRange(14)">直近14日</button>
     <button onclick="setRange(30)">直近30日</button>
     <button onclick="setRange(90)">直近90日</button>
   </div>
@@ -114,6 +116,7 @@
   <!-- グラフカード -->
   <div class="card">
     <canvas id="myChart"></canvas>
+    <div class="note">📌 ピンチで拡大縮小、ドラッグでスクロール、範囲ドラッグでズーム、ダブルタップでリセット</div>
   </div>
 
   <!-- 表カード -->
@@ -194,13 +197,32 @@
         },
         options: {
           responsive: true,
-          plugins: { legend: { position: "top" } },
+          plugins: {
+            legend: { position: "top" },
+            zoom: {
+              pan: {
+                enabled: true,
+                mode: "xy",   // 横・縦 両方スクロール可能
+              },
+              zoom: {
+                wheel: { enabled: true },
+                pinch: { enabled: true },
+                drag: { enabled: true }, // 範囲ドラッグでズーム
+                mode: "xy",              // 横・縦 両方ズーム可能
+              }
+            }
+          },
           scales: {
             x: { ticks: { maxRotation: 90, minRotation: 45 } },
             y: { beginAtZero: true }
           }
         }
       });
+
+      // ダブルクリックでリセット
+      document.getElementById("myChart").ondblclick = () => {
+        chart.resetZoom();
+      };
     }
 
     function drawTable(data) {
@@ -210,7 +232,7 @@
       data.forEach((d, i) => {
         const dateStr = d.date.toISOString().split("T")[0];
 
-        // フォロワー数増減
+        // フォロワー数増減 & 平均
         let followerDiff = "";
         if (i > 0) {
           const prev = data[i - 1];
