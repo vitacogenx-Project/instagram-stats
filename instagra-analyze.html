@@ -221,7 +221,7 @@
         tr.innerHTML = `
           <td>${d.date.toISOString().split("T")[0]}</td>
           <td>${d.followers}</td>
-          <td class="${diffFollowersClass}">${diffFollowers>=0?"+":""}${diffFollowers} (平均${avg7.toFixed(1)})</td>
+          <td class="${diffFollowersClass}">${diffFollowers>=0?"+":""}${diffFollowers} (${avg7.toFixed(1)})</td>
           <td>${d.following}</td>
           <td class="${diffFollowingClass}">${diffFollowing>=0?"+":""}${diffFollowing}</td>
           <td class="${rateClass}">${followBackRate.toFixed(1)}%</td>
