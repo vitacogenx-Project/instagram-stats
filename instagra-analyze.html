@@ -13,7 +13,7 @@
       margin: 20px;
       text-align: center;
     }
-    h2 { color: #262626; margin-bottom: 10px; }
+    h2 { margin-bottom: 10px; }
     .controls { margin: 10px 0; }
     button {
       background: #e1306c;
@@ -76,8 +76,10 @@
     <thead>
       <tr>
         <th>日付</th>
-        <th>フォロワー数<br>(増減 / 直近7日平均)</th>
-        <th>フォロー数<br>(増減)</th>
+        <th>フォロワー数</th>
+        <th>フォロワー増減<br>(直近7日平均)</th>
+        <th>フォロー数</th>
+        <th>フォロー増減</th>
         <th>フォローバック率</th>
       </tr>
     </thead>
@@ -211,11 +213,17 @@
         if (followBackRate > 55) rateClass = "green";
         else if (followBackRate < 45) rateClass = "red";
 
+        // 増減の色
+        const diffFollowersClass = diffFollowers > 0 ? "green" : diffFollowers < 0 ? "red" : "black";
+        const diffFollowingClass = diffFollowing > 0 ? "green" : diffFollowing < 0 ? "red" : "black";
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${d.date.toISOString().split("T")[0]}</td>
-          <td>${d.followers} (${diffFollowers>=0?"+":""}${diffFollowers} / 平均${avg7.toFixed(1)})</td>
-          <td>${d.following} (${diffFollowing>=0?"+":""}${diffFollowing})</td>
+          <td>${d.followers}</td>
+          <td class="${diffFollowersClass}">${diffFollowers>=0?"+":""}${diffFollowers} (平均${avg7.toFixed(1)})</td>
+          <td>${d.following}</td>
+          <td class="${diffFollowingClass}">${diffFollowing>=0?"+":""}${diffFollowing}</td>
           <td class="${rateClass}">${followBackRate.toFixed(1)}%</td>
         `;
         tbody.appendChild(tr);
