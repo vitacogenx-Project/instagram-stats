@@ -45,6 +45,15 @@
     .green { color: #27ae60; font-weight: bold; }
     .red { color: #c0392b; font-weight: bold; }
     .black { color: #000; font-weight: bold; }
+    .chart-container {
+      overflow-x: auto;
+      padding-bottom: 10px;
+    }
+    canvas {
+      width: 100%;
+      height: 400px;
+      min-width: 800px; /* 横スクロール時の最小幅 */
+    }
   </style>
 </head>
 <body>
@@ -68,7 +77,9 @@
     <button onclick="setYAxisMode('min')">縦軸: 最小値から</button>
   </div>
 
-  <canvas id="myChart" height="100"></canvas>
+  <div class="chart-container">
+    <canvas id="myChart"></canvas>
+  </div>
   <div style="font-size:12px; margin-top:5px;">※グラフはピンチ/スクロールで拡大・移動、ダブルタップでリセットできます</div>
 
   <h3>データ表</h3>
@@ -180,7 +191,14 @@
             }
           },
           scales: {
-            x: { ticks: { maxRotation: 90, minRotation: 45 } },
+            x: {
+              ticks: {
+                maxRotation: 45,
+                minRotation: 45,
+                autoSkip: true,
+                maxTicksLimit: 20
+              }
+            },
             y: {
               beginAtZero: yAxisMode === "zero",
               min: yAxisMode === "min" ? minVal - stepSize : undefined,
